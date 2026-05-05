@@ -1,0 +1,39 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# DuckDB — binary database file, reproduced by running the load script
+*.duckdb
+*.duckdb.wal
+
+# dbt
+dbt_mtpl/target/
+dbt_mtpl/logs/
+dbt_mtpl/.user.yml
+
+# Dagster
+dagster_mtpl/storage/
+dagster_mtpl/logs/
+dagster_mtpl/.dagster/
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Editors
+.vscode/settings.json
+*.swp
+*.swo
+
+# Secrets / environment
+.env
+*.env.*
+
+# Data — raw CSVs are large; exports are reproducible from the pipeline
+data/raw/
+# Keep data/exports/ tracked so dashboard CSVs are versioned in the repo
