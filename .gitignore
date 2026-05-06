@@ -15,6 +15,7 @@ build/
 dbt_mtpl/target/
 dbt_mtpl/logs/
 dbt_mtpl/.user.yml
+logs/
 
 # Dagster
 dagster_mtpl/storage/

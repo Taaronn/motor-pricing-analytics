@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: mart_burning_cost_by_age
+    description: >
+      Portfolio burning cost segmented by driver age band (7 bands, 18-24 through 75+).
+      Capped at P99 (€16,793.70). One row per age band. Source of truth for the
+      age-segment chart on the Looker Studio dashboard.
+    columns:
+      - name: age_band
+        description: Driver age band (prefix-sorted for correct chart ordering)
+        tests:
+          - not_null
+          - unique
+      - name: earned_exposure
+        description: Sum of policy exposure in policy-years for this band
+        tests:
+          - not_null
+      - name: burning_cost_capped
+        description: Total capped losses / earned exposure (€ per policy-year)
+        tests:
+          - not_null
+
+  - name: mart_burning_cost_by_bonus_malus
+    description: >
+      Portfolio burning cost segmented by BonusMalus band (4 bands: floor/51-70/71-100/101+).
+      Capped at P99. One row per band. Source of truth for the BonusMalus KPI card
+      and bar chart on the dashboard.
+    columns:
+      - name: bm_band
+        description: BonusMalus band (prefix-sorted)
+        tests:
+          - not_null
+          - unique
+      - name: earned_exposure
+        description: Sum of policy exposure in policy-years for this band
+        tests:
+          - not_null
+      - name: burning_cost_capped
+        description: Total capped losses / earned exposure (€ per policy-year)
+        tests:
+          - not_null
+
+  - name: mart_age_x_vehage_heatmap
+    description: >
+      2D burning cost heatmap: driver age band × vehicle age band (7×5 = 35 cells).
+      Capped at P99. One row per cell. Source of truth for the heatmap chart.
+      Two thin cells (18-24 × 16+, 75+ × 16+) flagged in model comments.
+    columns:
+      - name: age_band
+        description: Driver age band (prefix-sorted)
+        tests:
+          - not_null
+      - name: veh_age_band
+        description: Vehicle age band (prefix-sorted)
+        tests:
+          - not_null
+      - name: earned_exposure
+        description: Sum of policy exposure in policy-years for this cell
+        tests:
+          - not_null
+      - name: burning_cost_capped
+        description: Total capped losses / earned exposure (€ per policy-year)
+        tests:
+          - not_null

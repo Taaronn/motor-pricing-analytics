@@ -1,0 +1,56 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw source tables loaded into DuckDB via sql/load_raw.sql (clean) and
+      sql/dirty_raw.sql (dirty versions with introduced data quality issues).
+      dbt staging models read from the dirty tables to demonstrate cleaning logic.
+    database: mtpl
+    schema: main
+    tables:
+      - name: raw_freq_dirty
+        description: >
+          Dirty version of the freMTPL2freq policy table. Contains ~50 duplicate
+          rows, mixed-case/whitespace Region values, implausible DrivAge and
+          Exposure values. See data_quality.md for full issue catalogue.
+        columns:
+          - name: IDpol
+            description: Policy identifier (not unique — duplicates introduced deliberately)
+          - name: ClaimNb
+            description: Number of claims on this policy
+          - name: Exposure
+            description: Fraction of the year the policy was in force (should be 0 < x <= 1)
+          - name: VehPower
+            description: Vehicle engine power band
+          - name: VehAge
+            description: Vehicle age in years
+          - name: DrivAge
+            description: Driver age in years (should be 18–100)
+          - name: BonusMalus
+            description: French CRM coefficient (50 = floor, 100 = new driver, 350 = max malus)
+          - name: VehBrand
+            description: Vehicle brand code
+          - name: VehGas
+            description: Fuel type (Regular or Diesel)
+          - name: Area
+            description: Area code (urbanisation proxy, A–F)
+          - name: Density
+            description: Population density of the policy holder's commune
+          - name: Region
+            description: French administrative region (dirty — mixed case and whitespace)
+
+      - name: raw_sev_dirty
+        description: >
+          Dirty version of the freMTPL2sev severity table. Contains ~30 NULL
+          ClaimAmount values representing unvalued claims. See data_quality.md.
+        columns:
+          - name: IDpol
+            description: Policy identifier (foreign key to raw_freq_dirty)
+          - name: ClaimAmount
+            description: Gross claim amount in euros (NULL for 30 rows — dirty)
+
+      - name: raw_freq
+        description: Clean freMTPL2freq policy table as loaded from source CSV.
+      - name: raw_sev
+        description: Clean freMTPL2sev severity table as loaded from source CSV.

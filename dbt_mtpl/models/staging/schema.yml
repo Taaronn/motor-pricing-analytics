@@ -1,0 +1,62 @@
+version: 2
+
+models:
+  - name: stg_freq
+    description: >
+      Cleaned and deduplicated policy table. Sourced from raw_freq_dirty.
+      Duplicates removed, Region normalised to canonical title-case, implausible
+      DrivAge and Exposure values dropped. One row per policy (IDpol is unique).
+    columns:
+      - name: idpol
+        description: Policy identifier — unique after deduplication.
+        tests:
+          - not_null
+          - unique
+
+      - name: exposure
+        description: Fraction of year the policy was in force (0 < exposure <= 1).
+        tests:
+          - not_null
+
+      - name: driv_age
+        description: Driver age in years (18–100 after cleaning).
+        tests:
+          - not_null
+
+      - name: bonus_malus
+        description: French CRM coefficient (50 = floor, 100 = new driver entrant).
+        tests:
+          - not_null
+
+      - name: region
+        description: French administrative region, normalised to canonical title-case.
+        tests:
+          - not_null
+          # accepted_values not used here: dbt's generic test cannot handle the
+          # apostrophe in "Provence-Alpes-Cotes-D'Azur" without breaking SQL string
+          # interpolation. Region validity is enforced by the singular test
+          # tests/assert_valid_regions.sql, which uses SQL '' escaping correctly.
+
+      - name: veh_gas
+        description: Fuel type.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Regular', 'Diesel']
+
+  - name: stg_sev
+    description: >
+      Cleaned severity (claims) table. Sourced from raw_sev_dirty.
+      NULL and zero ClaimAmounts dropped. One row per claim — IDpol is NOT
+      unique (a policy may have multiple claims).
+    columns:
+      - name: idpol
+        description: Policy identifier (not unique — multiple claims per policy allowed).
+        tests:
+          - not_null
+
+      - name: claim_amount
+        description: Gross claim amount in euros (> 0 after cleaning).
+        tests:
+          - not_null
