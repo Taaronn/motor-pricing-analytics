@@ -3,63 +3,83 @@ version: 2
 models:
   - name: mart_burning_cost_by_age
     description: >
-      Portfolio burning cost segmented by driver age band (7 bands, 18-24 through 75+).
-      Capped at P99 (€16,793.70). One row per age band. Source of truth for the
-      age-segment chart on the Looker Studio dashboard.
+      Portfolio burning cost segmented by driver age band (7 bands, 18-24 through 75+)
+      and accident year (2017/2018/2019). Capped at P99 (16793.70).
+      One row per (age_band, accident_year) combination — 21 rows total.
+      Uniqueness is on the composite key; age_band alone is not unique.
     columns:
-      - name: age_band
-        description: Driver age band (prefix-sorted for correct chart ordering)
+      - name: accident_year
+        description: Synthetic accident year (2017/2018/2019) derived from HASH(IDpol) % 100.
         tests:
           - not_null
-          - unique
+          - accepted_values:
+              arguments:
+                values: [2017, 2018, 2019]
+      - name: age_band
+        description: Driver age band (prefix-sorted for correct chart ordering).
+        tests:
+          - not_null
       - name: earned_exposure
-        description: Sum of policy exposure in policy-years for this band
+        description: Sum of policy exposure in policy-years for this band and year.
         tests:
           - not_null
       - name: burning_cost_capped
-        description: Total capped losses / earned exposure (€ per policy-year)
+        description: Total capped losses / earned exposure (euros per policy-year).
         tests:
           - not_null
 
   - name: mart_burning_cost_by_bonus_malus
     description: >
-      Portfolio burning cost segmented by BonusMalus band (4 bands: floor/51-70/71-100/101+).
-      Capped at P99. One row per band. Source of truth for the BonusMalus KPI card
-      and bar chart on the dashboard.
+      Portfolio burning cost segmented by BonusMalus band (4 bands: floor/51-70/71-100/101+)
+      and accident year (2017/2018/2019). Capped at P99. One row per (bm_band, accident_year)
+      combination — 12 rows total.
     columns:
-      - name: bm_band
-        description: BonusMalus band (prefix-sorted)
+      - name: accident_year
+        description: Synthetic accident year (2017/2018/2019) derived from HASH(IDpol) % 100.
         tests:
           - not_null
-          - unique
+          - accepted_values:
+              arguments:
+                values: [2017, 2018, 2019]
+      - name: bm_band
+        description: BonusMalus band (prefix-sorted).
+        tests:
+          - not_null
       - name: earned_exposure
-        description: Sum of policy exposure in policy-years for this band
+        description: Sum of policy exposure in policy-years for this band and year.
         tests:
           - not_null
       - name: burning_cost_capped
-        description: Total capped losses / earned exposure (€ per policy-year)
+        description: Total capped losses / earned exposure (euros per policy-year).
         tests:
           - not_null
 
   - name: mart_age_x_vehage_heatmap
     description: >
-      2D burning cost heatmap: driver age band × vehicle age band (7×5 = 35 cells).
-      Capped at P99. One row per cell. Source of truth for the heatmap chart.
-      Two thin cells (18-24 × 16+, 75+ × 16+) flagged in model comments.
+      2D burning cost heatmap: driver age band x vehicle age band (7x5 = 35 cells),
+      further split by accident year (2017/2018/2019) — 105 rows total.
+      Capped at P99. Two thin cells (18-24 x 16+, 75+ x 16+) flagged in model comments.
     columns:
+      - name: accident_year
+        description: Synthetic accident year (2017/2018/2019) derived from HASH(IDpol) % 100.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [2017, 2018, 2019]
       - name: age_band
-        description: Driver age band (prefix-sorted)
+        description: Driver age band (prefix-sorted).
         tests:
           - not_null
       - name: veh_age_band
-        description: Vehicle age band (prefix-sorted)
+        description: Vehicle age band (prefix-sorted).
         tests:
           - not_null
       - name: earned_exposure
-        description: Sum of policy exposure in policy-years for this cell
+        description: Sum of policy exposure in policy-years for this cell and year.
         tests:
           - not_null
       - name: burning_cost_capped
-        description: Total capped losses / earned exposure (€ per policy-year)
+        description: Total capped losses / earned exposure (euros per policy-year).
         tests:
           - not_null

@@ -33,6 +33,7 @@ WITH base AS (
 banded AS (
 
     SELECT
+        accident_year,
         CASE
             WHEN bonus_malus = 50  THEN '1_floor (BM=50)'
             WHEN bonus_malus <= 70  THEN '2_51-70'
@@ -48,6 +49,7 @@ banded AS (
 aggregated AS (
 
     SELECT
+        accident_year,
         bm_band,
         COUNT(*)                                              AS policy_count,
         ROUND(SUM(exposure), 1)                               AS earned_exposure,
@@ -58,17 +60,17 @@ aggregated AS (
             / SUM(SUM(policy_loss_capped)) OVER () * SUM(SUM(exposure)) OVER ()
         , 3) AS relativity
     FROM banded
-    GROUP BY bm_band
+    GROUP BY accident_year, bm_band
 
 )
 
 SELECT
+    accident_year,
     bm_band,
     policy_count,
     earned_exposure,
     total_capped_losses,
     burning_cost_capped,
-    relativity,
-    CAST('2024-01-01' AS DATE) AS data_vintage
+    relativity
 FROM aggregated
-ORDER BY bm_band
+ORDER BY accident_year, bm_band

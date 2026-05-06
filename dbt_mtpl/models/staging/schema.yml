@@ -45,6 +45,17 @@ models:
               arguments:
                 values: ['Regular', 'Diesel']
 
+      - name: accident_year
+        description: >
+          Synthetic accident year (2017/2018/2019) derived deterministically from IDpol
+          using HASH(IDpol) % 100 with a 30/35/35 split. freMTPL2 has no real date column;
+          this field exists to demonstrate Dagster partitioning semantics.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [2017, 2018, 2019]
+
   - name: stg_sev
     description: >
       Cleaned severity (claims) table. Sourced from raw_sev_dirty.

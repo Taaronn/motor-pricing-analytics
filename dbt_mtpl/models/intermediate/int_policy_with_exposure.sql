@@ -39,6 +39,7 @@ losses AS (
 SELECT
     -- Policy identifiers and rating factors
     p.idpol,
+    p.accident_year,
     p.claim_nb,
     p.exposure,
     p.veh_power,
@@ -62,3 +63,22 @@ SELECT
 FROM policies p
 LEFT JOIN losses l
     ON p.idpol = l.idpol
+
+{#
+  Partition filter: when Dagster materialises a specific accident_year partition
+  it passes --vars '{"accident_year": <year>}' to dbt. The filter here means
+  each partition run builds only that year's slice.
+
+  When no var is set (direct `dbt run`, dbt docs, dbt test) the block is omitted
+  and all years flow through — so existing tests and the reconciliation check
+  continue to work against the full dataset.
+
+  WHY here and not in each mart?
+  Single point of control. All three marts read from this view, so one filter
+  covers everything. In a cloud warehouse you'd instead use incremental
+  materialization with partition_by; DuckDB's local-file engine doesn't support
+  table-level partitioning, so the filter is the equivalent mechanism.
+#}
+{% if var('accident_year', none) is not none %}
+WHERE p.accident_year = {{ var('accident_year') | int }}
+{% endif %}

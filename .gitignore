@@ -18,6 +18,15 @@ dbt_mtpl/.user.yml
 logs/
 
 # Dagster
+# dagster_home/ holds instance config (dagster.yaml — committed) and runtime
+# state (SQLite run history, schedule db, compute logs — NOT committed).
+# Ignore the runtime subdirectories individually so dagster.yaml stays tracked.
+dagster_mtpl/dagster_home/history/
+dagster_mtpl/dagster_home/schedules/
+dagster_mtpl/dagster_home/storage/
+dagster_mtpl/dagster_home/.nux/
+dagster_mtpl/dagster_home/.telemetry/
+dagster_mtpl/.tmp_dagster_home_*/
 dagster_mtpl/storage/
 dagster_mtpl/logs/
 dagster_mtpl/.dagster/

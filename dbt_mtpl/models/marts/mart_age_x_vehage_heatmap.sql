@@ -29,6 +29,7 @@ WITH base AS (
 banded AS (
 
     SELECT
+        accident_year,
         CASE
             WHEN driv_age < 25 THEN '1_18-24'
             WHEN driv_age < 35 THEN '2_25-34'
@@ -54,6 +55,7 @@ banded AS (
 aggregated AS (
 
     SELECT
+        accident_year,
         age_band,
         veh_age_band,
         COUNT(*)                                              AS policy_count,
@@ -65,18 +67,18 @@ aggregated AS (
             / SUM(SUM(policy_loss_capped)) OVER () * SUM(SUM(exposure)) OVER ()
         , 3) AS relativity
     FROM banded
-    GROUP BY age_band, veh_age_band
+    GROUP BY accident_year, age_band, veh_age_band
 
 )
 
 SELECT
+    accident_year,
     age_band,
     veh_age_band,
     policy_count,
     earned_exposure,
     total_capped_losses,
     burning_cost_capped,
-    relativity,
-    CAST('2024-01-01' AS DATE) AS data_vintage
+    relativity
 FROM aggregated
-ORDER BY age_band, veh_age_band
+ORDER BY accident_year, age_band, veh_age_band

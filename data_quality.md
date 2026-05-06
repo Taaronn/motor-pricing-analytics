@@ -150,3 +150,33 @@ no matched exposure.
 policies that were cancelled mid-year and removed from the freq file, or a
 referential integrity issue in the source system. In a production environment
 these would be escalated to the data engineering team for investigation.
+
+---
+
+## Operational notes
+
+### [O1] DuckDB single-writer constraint
+
+DuckDB is a local single-process analytical engine. It enforces an exclusive
+write lock on the `.duckdb` file: only one connection can hold a write lock at
+a time. This affects the Dagster orchestration layer in two ways:
+
+**Dagster run concurrency (`max_concurrent_runs: 1`)**
+When a backfill materialises multiple partitions, Dagster's default behaviour
+is to launch all partition runs concurrently. For a DuckDB backend, concurrent
+runs each try to open the file for writing and all but one will fail with a
+lock conflict error. The instance is configured with `max_concurrent_runs: 1`
+in `dagster_home/dagster.yaml`, which serialises runs through a queue. Each
+partition run completes and releases the lock before the next one starts.
+
+**dbt thread count (`threads: 1`)**
+dbt runs independent models in parallel across threads. With a DuckDB backend,
+parallel model execution within a single dbt invocation also causes lock
+contention. The dev target in `~/.dbt/profiles.yml` is set to `threads: 1` so
+dbt executes models sequentially within each run.
+
+**Architectural note:** Both settings are constraints of the DuckDB storage
+engine, not of the pipeline design. On a Snowflake or BigQuery backend,
+`max_concurrent_runs` can be removed (unlimited concurrency is correct) and
+`threads` can be increased to 4–8 for parallel model execution. The pipeline
+code itself is backend-agnostic; only these two config values need to change.

@@ -40,6 +40,7 @@ WITH base AS (
 banded AS (
 
     SELECT
+        accident_year,
         CASE
             WHEN driv_age < 25 THEN '1_18-24'
             WHEN driv_age < 35 THEN '2_25-34'
@@ -58,33 +59,32 @@ banded AS (
 aggregated AS (
 
     SELECT
+        accident_year,
         age_band,
         COUNT(*)                                              AS policy_count,
         ROUND(SUM(exposure), 1)                               AS earned_exposure,
         ROUND(SUM(policy_loss_capped), 0)                     AS total_capped_losses,
         ROUND(SUM(policy_loss_capped) / SUM(exposure), 2)     AS burning_cost_capped,
-        -- Relativity: this segment's BC as a ratio to the portfolio average.
-        -- Window function computes the denominator across all rows simultaneously.
-        -- WHY: relativities are how actuaries communicate rate adequacy; the raw
-        -- £ figure is portfolio-mix-dependent, relativity strips that out.
+        -- Relativity is computed against the full portfolio average (OVER () = all rows).
+        -- With accident_year in GROUP BY, each cell is one age_band × year combination.
+        -- The denominator is still the portfolio-wide BC, so relativities remain
+        -- comparable across years and segments.
         ROUND(
             (SUM(policy_loss_capped) / SUM(exposure))
             / SUM(SUM(policy_loss_capped)) OVER () * SUM(SUM(exposure)) OVER ()
         , 3) AS relativity
     FROM banded
-    GROUP BY age_band
+    GROUP BY accident_year, age_band
 
 )
 
 SELECT
+    accident_year,
     age_band,
     policy_count,
     earned_exposure,
     total_capped_losses,
     burning_cost_capped,
-    relativity,
-    -- Partition key: would be used as the physical partition column in BigQuery/Snowflake.
-    -- Represents the data processing vintage for accretive partition management.
-    CAST('2024-01-01' AS DATE) AS data_vintage
+    relativity
 FROM aggregated
-ORDER BY age_band
+ORDER BY accident_year, age_band

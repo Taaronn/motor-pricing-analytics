@@ -1,0 +1,23 @@
+# Dagster instance configuration for the mtpl pipeline.
+#
+# WHY max_concurrent_runs: 1
+# DuckDB uses a single-writer lock on the .duckdb file. If two Dagster runs
+# execute simultaneously — as happens during a multi-partition backfill with the
+# default concurrent executor — both try to open the file for writing and one
+# gets "Conflicting lock" error (DUCKDB_FATAL_ERROR). This is not a bug in
+# the pipeline; it is DuckDB's intended behaviour as a local single-process
+# analytical engine.
+#
+# Setting max_concurrent_runs: 1 serialises all Dagster runs through a queue.
+# Each partition run completes and releases the lock before the next one starts.
+# The backfill still runs all three partitions — it just does them sequentially.
+#
+# For a cloud backend (Snowflake, BigQuery, Redshift) this limit can be removed
+# entirely: those engines support concurrent writes from multiple sessions and
+# the QueuedRunCoordinator default (unlimited) is correct.
+
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 1

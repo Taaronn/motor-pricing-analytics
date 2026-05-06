@@ -86,7 +86,22 @@ cleaned AS (
         d.Area                                      AS area,
         CAST(d.Density AS INTEGER)                  AS density,
         -- Join on lowercased, trimmed Region to match any case variant
-        COALESCE(cr.region_canonical, TRIM(d.Region)) AS region
+        COALESCE(cr.region_canonical, TRIM(d.Region)) AS region,
+
+        -- Synthetic accident year for partition demonstration.
+        -- freMTPL2 has no real date column, so we derive accident_year from IDpol
+        -- using a deterministic hash. HASH() returns a non-negative UBIGINT in DuckDB,
+        -- so % 100 gives a stable value in [0, 99] for every policy.
+        -- 30/35/35 split mimics a realistic book that grew over three years.
+        -- WHY HASH over IDpol % 3: IDpol values are sequential integers, so % 3
+        -- would produce a perfectly uniform distribution — real accident-year splits
+        -- are never uniform. HASH breaks the sequential pattern and gives a messier,
+        -- more realistic distribution.
+        CASE
+            WHEN hash(CAST(d.IDpol AS VARCHAR)) % 100 < 30 THEN 2017
+            WHEN hash(CAST(d.IDpol AS VARCHAR)) % 100 < 65 THEN 2018
+            ELSE 2019
+        END AS accident_year
 
     FROM deduped d
     LEFT JOIN canonical_regions cr
