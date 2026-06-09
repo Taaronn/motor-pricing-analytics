@@ -2,9 +2,33 @@
 
 > **Business question:** Which segments are driving our motor book's loss ratio above target, and what rate change is indicated to bring it back in line?
 
-**Status:** Stage 1 complete — exploratory analysis. dbt pipeline and dashboard in progress.
+**Status:** Stage 6 complete — public dashboard published.
 
-A data analytics project built on the French Motor Third-Party Liability (freMTPL2) dataset, demonstrating actuarial pricing analysis with SQL and DuckDB.
+A pricing analysis project using the French Motor Third-Party Liability (freMTPL2) dataset. The stack goes from raw CSV → DuckDB → dbt → Dagster → Looker Studio.
+
+---
+
+## Dashboard
+
+**[View the dashboard →](https://datastudio.google.com/reporting/53a0cdc4-9106-4849-b45e-afa3ed74d13d)**
+
+Page 1 is the executive summary — whole-book burning cost and how exposure and claims split across the main rating factors.
+
+![Executive summary](docs/screenshots/dashboard_page1_executive_summary.png)
+
+The portfolio capped burning cost is **€116 per policy-year**. Most of the book is fine: 57% of policies sit at the BonusMalus floor (BM=50) and average €78/year. The mean is being pulled up by a small high-malus tail.
+
+Page 2 focuses on the two factors that matter most.
+
+![Driver age and BonusMalus deep-dive](docs/screenshots/dashboard_page2_deep_dive.png)
+
+Driver age spans a 3.8× range from youngest to oldest band. BonusMalus spans 7.3× — it's the stronger predictor and the main story. Year-on-year the numbers are stable, which rules out a single-year distortion. In the interaction heatmap, driver age drives most of the gradient; vehicle age adds a secondary effect but doesn't change the ranking.
+
+![BonusMalus heatmap close-up](docs/screenshots/dashboard_heatmap_closeup.png)
+
+The BM 101+ tail stands out in every age band — that's where the pricing problem is concentrated.
+
+> **Note on the data source:** The dashboard connects to Google Sheets rather than DuckDB directly. Looker Studio needs a cloud-accessible source to generate a public link, and I didn't want to set up hosting infrastructure for a portfolio piece. The numbers are identical — it's a plumbing trade-off for shareability.
 
 ---
 
@@ -16,7 +40,7 @@ A data analytics project built on the French Motor Third-Party Liability (freMTP
 | Youth drivers (18–24) relativity | **2.5–3.0× average** |
 | High-malus drivers (BM 101+) relativity | **4.9× average** |
 
-The book is running above target primarily due to two segments: young drivers and recently-penalised drivers (BonusMalus > 100). Critically, 57% of the book sits at the BonusMalus floor (BM=50) generating just €78/year — meaning the majority cohort is adequately priced, and the loss ratio problem is concentrated in a small but poorly-rated tail.
+The book is running above target in two segments: young drivers and recently-penalised drivers (BonusMalus > 100). The majority cohort at BM=50 is adequately priced — the loss ratio problem is concentrated in a small tail.
 
 ---
 
@@ -31,7 +55,7 @@ The book is running above target primarily due to two segments: young drivers an
 
 ---
 
-## Architecture (current)
+## Architecture
 
 ```
 data/raw/                  ← freMTPL2freq.csv, freMTPL2sev.csv (not tracked)
@@ -40,40 +64,38 @@ data/raw/                  ← freMTPL2freq.csv, freMTPL2sev.csv (not tracked)
 DuckDB (mtpl.duckdb)       ← loaded via sql/load_raw.sql; not tracked (reproduced locally)
     │
     ▼
-sql/exploration/           ← 7 standalone SQL files
-                              01 portfolio burning cost
-                              02 burning cost by driver age (uncapped)
-                              03 youth loss distribution diagnostic
-                              04 loss distribution (P50–P99.9)
-                              05 burning cost by driver age (capped at P99)
-                              06 burning cost by BonusMalus band (capped)
-                              07 burning cost heatmap: driver age × vehicle age (capped)
+dbt (models/)              ← staging → intermediate → marts
+    │
+    ▼
+Dagster (orchestration/)   ← partitioned assets, data quality checks
+    │
+    ▼
+Looker Studio              ← public dashboard (via Google Sheets export)
 ```
 
-**Coming next:** dbt transformation layer (staging → intermediate → marts), Dagster orchestration, Looker Studio dashboard.
+SQL exploration queries are in `sql/exploration/` (7 files, 01–07).
 
 ---
 
 ## Methodology notes
 
 **Loss capping at P99 (€16,794)**
-Individual claims are capped before any segment analysis. One catastrophic claim (€4.07M) distorted the uncapped youth burning cost from €940 to €286 after capping — a 70% reduction. All segment comparisons use the same P99 cap so figures are directly comparable.
+Claims are capped before any segment analysis. One catastrophic claim (€4.07M) moved the uncapped youth burning cost from €940 to €286 after capping — a 70% reduction. All segments use the same cap so the comparisons are consistent.
 
-**Banding decisions are data-driven, not arbitrary**
-- BonusMalus bands were chosen after inspecting the empirical distribution. The 101+ band collapses four thin sub-bands (101–125, 126–150, 151–200, 200+) that each fell below the ~3,000-policy statistical reliability threshold.
-- Vehicle age bands (0–1, 2–5, 6–10, 11–15, 16+) were validated with a cell-count check before finalising. All 35 age × vehicle-age cells exceed 500 policies; two thin cells (18–24 × 16+, 75+ × 16+) are flagged in the heatmap query comments.
+**How bands were chosen**
+BonusMalus bands were set after inspecting the empirical distribution. The 101+ band merges four thin sub-bands (101–125, 126–150, 151–200, 200+) that each fell below ~3,000 policies individually. Vehicle age bands (0–1, 2–5, 6–10, 11–15, 16+) were validated with a cell-count check — all 35 age × vehicle-age cells exceed 500 policies. Two thin cells (18–24 × 16+, 75+ × 16+) are flagged in the query comments.
 
-**Known data quality issues**
-~195 claims in `raw_sev` have `IDpol` values with no matching policy in `raw_freq`. Retained in portfolio totals but excluded from segment analyses requiring a LEFT JOIN to exposure.
+**Data quality**
+~195 claims in `raw_sev` have `IDpol` values with no matching policy in `raw_freq`. Kept in portfolio totals, excluded from segment analyses that need a LEFT JOIN to exposure.
 
-**To investigate with underwriters**
-The vehicle age effect is non-linear and interacts with driver age. In the 25–34 band, burning cost peaks at VehAge 6–10 rather than declining monotonically. This warrants underwriter input before drawing pricing conclusions.
+**Open question**
+The vehicle age effect isn't monotonic. In the 25–34 driver age band, burning cost peaks at VehAge 6–10 rather than falling steadily. Worth discussing with underwriters before using this in a rate change.
 
 ---
 
 ## Reproduce locally
 
-Requires DuckDB installed (`brew install duckdb` on macOS).
+Requires DuckDB (`brew install duckdb` on macOS).
 
 ```bash
 # 1. Clone the repo
@@ -84,10 +106,10 @@ cd motor-pricing-analytics
 #    Source: CASdatasets R package (Charpentier et al.)
 #    Place both files in data/raw/
 
-# 3. Load raw data into DuckDB
+# 3. Load into DuckDB
 duckdb mtpl.duckdb < sql/load_raw.sql
 
-# 4. Run an exploration query
+# 4. Run a query
 duckdb mtpl.duckdb < sql/exploration/01_burning_cost.sql
 ```
 
@@ -99,18 +121,25 @@ duckdb mtpl.duckdb < sql/exploration/01_burning_cost.sql
 01-pricing-mtpl/
 ├── data/
 │   └── raw/              ← not tracked (download separately)
+├── docs/
+│   └── screenshots/      ← dashboard screenshots
+├── models/               ← dbt transformation layer
+├── orchestration/        ← Dagster pipeline
 ├── sql/
-│   ├── load_raw.sql      ← bootstrap: loads CSVs into DuckDB
+│   ├── load_raw.sql
 │   └── exploration/      ← 7 analytical SQL files
 └── README.md
 ```
 
 ---
 
-## Tools & stack
+## Stack
 
 | Layer | Tool |
 |---|---|
 | Query & storage | DuckDB |
+| Transformation | dbt |
+| Orchestration | Dagster |
+| Dashboard | Looker Studio |
 | Language | SQL |
 | Version control | Git / GitHub |
